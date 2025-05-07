@@ -3,21 +3,18 @@
 #include "Disk_Class/Disk.h"
 #include "FrontendInterface/FrontendInterface.h"
 #include <iostream>
+#include <stdio.h>
 
 int main(int argc, char *argv[]) {
   Disk disk_run;
-
+ 
   unsigned char buffer[BLOCK_SIZE];
-  Disk::readBlock(buffer, 7000);
-  char message[] = "hello";
-  memcpy(buffer + 20, message, 6);
-  Disk::writeBlock(buffer, 7000);
-
-  unsigned char buffer2[BLOCK_SIZE];
-  char message2[6];
-  Disk::readBlock(buffer2, 7000);
-  memcpy(message2, buffer2 + 20, 6);
-  std::cout << message2;
+  for(int i=0; i<4; i++){
+    printf("\nBMAP Block %d:\n", i);
+    Disk::readBlock(buffer, i);
+    for(auto x : buffer) printf("%d", x);
+    printf("\n");
+  }
 
   return 0; 
 }

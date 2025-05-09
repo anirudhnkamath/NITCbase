@@ -7,16 +7,8 @@
 
 int main(int argc, char *argv[]) {
   Disk disk_run;
+  StaticBuffer buffer;
 
-  unsigned char buffer[BLOCK_SIZE];
-  Disk::readBlock(buffer, ATTRCAT_BLOCK);
-  const char* newAttr = "Batch";
-
-  int offset = HEADER_SIZE + 20 + (15*96) + 16;
-  memcpy(buffer+offset, newAttr, 16);
-
-  Disk::writeBlock(buffer, ATTRCAT_BLOCK);
-  
   RecBuffer relCatBuffer(RELCAT_BLOCK);
   HeadInfo relCatHeader;
 

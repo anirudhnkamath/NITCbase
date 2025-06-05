@@ -1,6 +1,6 @@
 #include "OpenRelTable.h"
 #include <stdlib.h>
-
+#include <stdio.h>
 #include <cstring>
 
 OpenRelTable::OpenRelTable() {
@@ -40,7 +40,7 @@ OpenRelTable::OpenRelTable() {
 
   // struct RelCacheEntry relCacheEntry;            (no need, as we use the same one used earlier)
   RelCacheTable::recordToRelCatEntry(relCatRecord, &(relCacheEntry.relCatEntry));
-  relCacheEntry.recId.block = ATTRCAT_BLOCK;
+  relCacheEntry.recId.block = RELCAT_BLOCK;
   relCacheEntry.recId.slot = RELCAT_SLOTNUM_FOR_ATTRCAT;
 
   RelCacheTable::relCache[ATTRCAT_RELID] = (struct RelCacheEntry *) malloc(sizeof(struct RelCacheEntry));
@@ -109,6 +109,53 @@ OpenRelTable::OpenRelTable() {
   }
 
   AttrCacheTable::attrCache[ATTRCAT_RELID] = headAttrCacheEntry;
+  
+
+
+
+  //SETTING UP TABLES FOR STUDENTS RELATION
+  
+  // relation cache
+
+  // RecBuffer relCatBlock(RELCAT_BLOCK);           (no need, as we use the same one used earlier)
+
+  // Attribute relCatRecord[RELCAT_NO_ATTRS];       (no need, as we use the same one used earlier)
+
+  relCatBlock.getRecord(relCatRecord, 2);
+
+  // struct RelCacheEntry relCacheEntry;            (no need, as we use the same one used earlier)
+  RelCacheTable::recordToRelCatEntry(relCatRecord, &(relCacheEntry.relCatEntry));
+  relCacheEntry.recId.block = RELCAT_BLOCK;
+  relCacheEntry.recId.slot = 2;
+
+  RelCacheTable::relCache[2] = (struct RelCacheEntry *) malloc(sizeof(struct RelCacheEntry));
+  *RelCacheTable::relCache[2] = relCacheEntry;
+
+
+  // attribute cache;
+  
+  prevAttrCacheEntry = nullptr;                  // (we use the same one used earlier)
+  headAttrCacheEntry = nullptr;
+  for(int i=12; i<16; i++) {
+    attrCatBuffer.getRecord(attrCatRecord, i);
+    struct AttrCacheEntry* attrCacheEntry = (struct AttrCacheEntry*)malloc(sizeof(struct AttrCacheEntry));
+
+    AttrCacheTable::recordToAttrCatEntry(attrCatRecord, &(attrCacheEntry->attrCatEntry));
+    attrCacheEntry->recId.block = ATTRCAT_BLOCK;
+    attrCacheEntry->recId.slot = i;
+    attrCacheEntry->next = nullptr;
+
+    // set up head pointer
+    if(i == 12)
+      headAttrCacheEntry = attrCacheEntry;
+
+    if(prevAttrCacheEntry)
+      prevAttrCacheEntry->next = attrCacheEntry;
+
+    prevAttrCacheEntry = attrCacheEntry;
+  }
+
+  AttrCacheTable::attrCache[2] = headAttrCacheEntry;
 }
 
 OpenRelTable::~OpenRelTable() {

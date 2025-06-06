@@ -9,9 +9,6 @@ OpenRelTable::OpenRelTable() {
     AttrCacheTable::attrCache[i] = nullptr;
   }
 
-
-
-
   // SETTING UP RELCACHE ENTRIES
 
   // setting up entry of relation catalog (present in relation catalog) in relCache table
@@ -29,7 +26,6 @@ OpenRelTable::OpenRelTable() {
   RelCacheTable::relCache[RELCAT_RELID] = (struct RelCacheEntry *) malloc(sizeof(struct RelCacheEntry));
   *RelCacheTable::relCache[RELCAT_RELID] = relCacheEntry;
 
-
   // setting up entry of attribute catalog (present in relation catalog) in relCache table
 
   // RecBuffer relCatBlock(RELCAT_BLOCK);           (no need, as we use the same one used earlier)
@@ -45,9 +41,6 @@ OpenRelTable::OpenRelTable() {
 
   RelCacheTable::relCache[ATTRCAT_RELID] = (struct RelCacheEntry *) malloc(sizeof(struct RelCacheEntry));
   *RelCacheTable::relCache[ATTRCAT_RELID] = relCacheEntry;
-
-
-
 
   // SETTING UP ATTRCACHE ENTRIES
 
@@ -80,7 +73,6 @@ OpenRelTable::OpenRelTable() {
 
   AttrCacheTable::attrCache[RELCAT_RELID] = headAttrCacheEntry;
 
-
   // setting up attributes of attribute catalog (present in attribute catalog) in attrCache table
 
   // RecBuffer attrCatBuffer(ATTRCAT_BLOCK);        (no need, as we use the same one used earlier)
@@ -110,9 +102,6 @@ OpenRelTable::OpenRelTable() {
 
   AttrCacheTable::attrCache[ATTRCAT_RELID] = headAttrCacheEntry;
   
-
-
-
   //SETTING UP TABLES FOR STUDENTS RELATION
   
   // relation cache
@@ -156,6 +145,15 @@ OpenRelTable::OpenRelTable() {
   }
 
   AttrCacheTable::attrCache[2] = headAttrCacheEntry;
+}
+
+int OpenRelTable::getRelId(char relName[ATTR_SIZE]) {
+  if(strcmp(relName, RELCAT_RELNAME) == 0)
+    return RELCAT_RELID;
+  if(strcmp(relName, ATTRCAT_RELNAME) == 0)
+    return ATTRCAT_RELID;
+
+  return E_RELNOTOPEN;
 }
 
 OpenRelTable::~OpenRelTable() {

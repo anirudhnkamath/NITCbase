@@ -46,6 +46,23 @@ int RecBuffer::getRecord(union Attribute *rec, int slotNum){
   return SUCCESS;
 }
 
+int RecBuffer::getSlotMap(unsigned char* slotMap) {
+  unsigned char* bufferPtr;
+
+  int ret = loadBlockAndGetBufferPtr(&bufferPtr);
+  if (ret != SUCCESS)
+    return ret;
+  
+  struct HeadInfo head;
+  this->getHeader(&head);
+  int slotCount = head.numSlots;
+
+  unsigned char* slotMapInBuffer = bufferPtr + HEADER_SIZE;
+  memcpy(slotMap, slotMapInBuffer, slotCount);
+
+  return SUCCESS;
+}
+
 int BlockBuffer::loadBlockAndGetBufferPtr(unsigned char** bufferPtr){
   int bufferNum = StaticBuffer::getBufferNum(this->blockNum);
 
@@ -59,4 +76,16 @@ int BlockBuffer::loadBlockAndGetBufferPtr(unsigned char** bufferPtr){
 
   *bufferPtr = StaticBuffer::blocks[bufferNum];
   return SUCCESS;
+}
+
+int compareAttrs(Attribute attr1, Attribute attr2, int attrType) {
+  double diff;
+  if(attrType == STRING)
+    diff = strcmp(attr1.sVal, attr2.sVal);
+  else
+    diff = attr1.nVal - attr2.nVal;
+
+  if(diff < 0) return -1;
+  else if(diff == 0) return 0;
+  else return 1;
 }

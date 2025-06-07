@@ -1,5 +1,4 @@
 #include "Frontend.h"
-
 #include <cstring>
 #include <iostream>
 
@@ -15,13 +14,11 @@ int Frontend::drop_table(char relname[ATTR_SIZE]) {
 }
 
 int Frontend::open_table(char relname[ATTR_SIZE]) {
-  // Schema::openRel
-  return SUCCESS;
+  return Schema::openRel(relname);
 }
 
 int Frontend::close_table(char relname[ATTR_SIZE]) {
-  // Schema::closeRel
-  return SUCCESS;
+  return Schema::closeRel(relname);
 }
 
 int Frontend::alter_table_rename(char relname_from[ATTR_SIZE], char relname_to[ATTR_SIZE]) {

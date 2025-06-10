@@ -1,6 +1,7 @@
 #include "OpenRelTable.h"
 #include <stdlib.h>
 #include <cstring>
+#include <stdio.h>
 
 OpenRelTableMetaInfo OpenRelTable::tableMetaInfo[MAX_OPEN];
 
@@ -169,6 +170,19 @@ int OpenRelTable::closeRel(int relId) {
 
   if (tableMetaInfo[relId].free)
     return E_RELNOTOPEN;
+  
+  if(RelCacheTable::relCache[relId]->dirty) {
+    union Attribute record[RELCAT_NO_ATTRS];
+    RelCacheTable::relCatEntryToRecord(&(RelCacheTable::relCache[relId]->relCatEntry), record);
+
+    union Attribute attrVal;
+    strcpy(attrVal.sVal, record[RELCAT_REL_NAME_INDEX].sVal);
+    RelCacheTable::resetSearchIndex(RELCAT_RELID);
+    RecId recId = BlockAccess::linearSearch(RELCAT_RELID, (char*)RELCAT_ATTR_RELNAME, attrVal, EQ);
+
+    RecBuffer relCatBlock(recId.block);
+    relCatBlock.setRecord(record, recId.slot);
+  }
   
   free(RelCacheTable::relCache[relId]);
   RelCacheTable::relCache[relId] = nullptr;

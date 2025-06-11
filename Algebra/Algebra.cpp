@@ -3,6 +3,7 @@
 #include <cstring>
 #include <stdio.h>
 
+// utility function, checks if its a valid number 
 bool isNumber(char *str) {
   int len;
   float ignore;
@@ -10,6 +11,9 @@ bool isNumber(char *str) {
   return ret == 1 && len == strlen(str);
 }
 
+
+
+// repeatedly calls linear search to select records from relation based on an operator
 int Algebra::select(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], char attr[ATTR_SIZE], int op, char strVal[ATTR_SIZE]) {
   int srcRelId = OpenRelTable::getRelId(srcRel);
   if(srcRelId == E_RELNOTOPEN)
@@ -20,6 +24,7 @@ int Algebra::select(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], char attr
   if(attrCatError == E_ATTRNOTEXIST)
     return E_ATTRNOTEXIST;
 
+  // checking if relation and given attribute types match
   int type = attrCatEntry.attrType;
   Attribute attrVal;
   if(type == NUMBER) {
@@ -32,19 +37,10 @@ int Algebra::select(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], char attr
     strcpy(attrVal.sVal, strVal);
   }
 
-  // linear searching
-
   RelCacheTable::resetSearchIndex(srcRelId);
 
   RelCatEntry relCatEntry;
   RelCacheTable::getRelCatEntry(srcRelId, &relCatEntry);
-
-  /************************
-  The following code prints the contents of a relation directly to the output
-  console. Direct console output is not permitted by the actual the NITCbase
-  specification and the output can only be inserted into a new relation. We will
-  be modifying it in the later stages to match the specification.
-  ************************/
 
   printf("|");
   for (int i=0; i<relCatEntry.numAttrs; i++) {
@@ -54,6 +50,7 @@ int Algebra::select(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], char attr
   }
   printf("\n");
 
+  // calling linear search repeatedly
   while (true) {
     RecId searchRes = BlockAccess::linearSearch(srcRelId, attr, attrVal, op);
 
@@ -82,6 +79,7 @@ int Algebra::select(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], char attr
   return SUCCESS;
 }
 
+// verifies the data type of record to insert and then calls insert function
 int Algebra::insert(char relName[ATTR_SIZE], int nAttrs, char record[][ATTR_SIZE]) {
   if(strcmp(relName, RELCAT_RELNAME) == 0 || strcmp(relName, ATTRCAT_RELNAME) == 0)
     return E_NOTPERMITTED;
@@ -93,9 +91,11 @@ int Algebra::insert(char relName[ATTR_SIZE], int nAttrs, char record[][ATTR_SIZE
   RelCatEntry relCatEntry;
   RelCacheTable::getRelCatEntry(relId, &relCatEntry);
 
+  // checking if number of attrs match
   if(relCatEntry.numAttrs != nAttrs)
     return E_NATTRMISMATCH;
 
+  // checking data types
   union Attribute recordValues[nAttrs];
   for(int i=0; i<nAttrs; i++) {
     AttrCatEntry attrCatEntry;

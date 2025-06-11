@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstring>
 
+// opens relation using openrel function and check if it was opened successfully
 int Schema::openRel(char relName[ATTR_SIZE]) {
   int ret = OpenRelTable::openRel(relName);
   if(ret >= 0)
@@ -11,6 +12,7 @@ int Schema::openRel(char relName[ATTR_SIZE]) {
   return ret;
 }
 
+// checks if relation is open and close is valid, then calls closeRel function
 int Schema::closeRel(char relName[ATTR_SIZE]) {
   if(strcmp(relName, RELCAT_RELNAME) == 0 || strcmp(relName, ATTRCAT_RELNAME) == 0)
     return E_NOTPERMITTED;
@@ -23,6 +25,7 @@ int Schema::closeRel(char relName[ATTR_SIZE]) {
   return OpenRelTable::closeRel(relId);
 }
 
+// checks if relation is closed and change is permitted, and then calls renamerelation function
 int Schema::renameRel(char oldRelName[ATTR_SIZE], char newRelName[ATTR_SIZE]) {
   if(strcmp(oldRelName, RELCAT_RELNAME) == 0 || strcmp(oldRelName, ATTRCAT_RELNAME) == 0)
     return E_NOTPERMITTED;
@@ -35,6 +38,7 @@ int Schema::renameRel(char oldRelName[ATTR_SIZE], char newRelName[ATTR_SIZE]) {
   return BlockAccess::renameRelation(oldRelName, newRelName);
 }
 
+// checks if relation is closed and change is permitted, and then calls renameattribute function
 int Schema::renameAttr(char *relName, char *oldAttrName, char *newAttrName) {
   if(strcmp(relName, RELCAT_RELNAME) == 0 || strcmp(relName, ATTRCAT_RELNAME) == 0)
     return E_NOTPERMITTED;

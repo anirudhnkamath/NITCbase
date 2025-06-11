@@ -4,25 +4,30 @@
 #include <cstring>
 #include <stdio.h>
 
+// constructor 2 (if block already exists)
 BlockBuffer::BlockBuffer(int blockNum){
   this->blockNum = blockNum;
 }
 
+// constructor 1 (if block doesnt exist)
 BlockBuffer::BlockBuffer(char blockType) {
   int blockTypeInt;
   if(blockType == 'R') blockTypeInt = REC;
   else if(blockType == 'I') blockTypeInt = IND_INTERNAL;
   else if(blockType == 'L') blockTypeInt = IND_LEAF;
 
+  // sets this->blocknum as a free block (doesnt check if its valid block or error code)
   int getBlockRes = this->getFreeBlock(blockTypeInt);
   this->blockNum = getBlockRes;
 }
 
+// constructor 1 (if block exists)
 RecBuffer::RecBuffer(int blockNum) : BlockBuffer::BlockBuffer(blockNum) {}
 
+// constructor 2 (if block doesnt exist)
 RecBuffer::RecBuffer() : BlockBuffer::BlockBuffer('R'){};
 
-
+// loads header of a block
 int BlockBuffer::getHeader(struct HeadInfo* head){
   unsigned char *bufferPtr;
   int ret = loadBlockAndGetBufferPtr(&bufferPtr);
@@ -41,16 +46,20 @@ int BlockBuffer::getHeader(struct HeadInfo* head){
   return SUCCESS;
 }
 
+// returns the staticbuffer pointer of given block (loads it into buffer if doesnt exist in buffer)
 int BlockBuffer::loadBlockAndGetBufferPtr(unsigned char** bufferPtr){
   int bufferNum = StaticBuffer::getBufferNum(this->blockNum);
   
+  // if block in buffer, updates the timestamps of all blocks
   if(bufferNum != E_BLOCKNOTINBUFFER) {
+    // timestamp = 0 for selected block, +1 for others
     for(int i=0; i<BUFFER_CAPACITY; i++) {
       if(i == bufferNum) StaticBuffer::metainfo[i].timeStamp = 0;
       else StaticBuffer::metainfo[i].timeStamp += 1;
     }
   }
   
+  // if block not in buffer, reads gets free slot and then reads from disk
   else {
     bufferNum = StaticBuffer::getFreeBuffer(this->blockNum);
     if(bufferNum == E_OUTOFBOUND)
@@ -59,16 +68,19 @@ int BlockBuffer::loadBlockAndGetBufferPtr(unsigned char** bufferPtr){
     Disk::readBlock(StaticBuffer::blocks[bufferNum], this->blockNum);
   }
 
+  // returns buffer pointer
   *bufferPtr = StaticBuffer::blocks[bufferNum];
   return SUCCESS;
 }
 
+// sets the header of a block
 int BlockBuffer::setHeader(struct HeadInfo* head) {
   unsigned char* bufferPtr;
   int loadRes = loadBlockAndGetBufferPtr(&bufferPtr);
   if(loadRes != SUCCESS)
     return loadRes;
 
+  // sets the struct values
   struct HeadInfo* bufferHeader = (struct HeadInfo*)bufferPtr;
   bufferHeader->blockType = head->blockType;
   bufferHeader->lblock = head->lblock;
@@ -78,6 +90,7 @@ int BlockBuffer::setHeader(struct HeadInfo* head) {
   bufferHeader->pblock = head->pblock;
   bufferHeader->rblock = head->rblock;
 
+  // since buffer is modifies, sets the dirty bit to true
   int setDirtyRes = StaticBuffer::setDirtyBit(this->blockNum);
   if(setDirtyRes != SUCCESS)
     return setDirtyRes;
@@ -85,17 +98,19 @@ int BlockBuffer::setHeader(struct HeadInfo* head) {
   return SUCCESS;
 }
 
+// sets the block type in header of block
 int BlockBuffer::setBlockType(int blockType) {
   unsigned char* bufferPtr;
   int loadRes = loadBlockAndGetBufferPtr(&bufferPtr);
   if(loadRes != SUCCESS)
     return loadRes;
 
-  // set block type in header;
+  // sets block type in header
   *(int32_t*)bufferPtr = blockType;
-
+  // updates blockallocation map to match the type
   StaticBuffer::blockAllocMap[this->blockNum] = blockType;
   
+  // since buffer is modified, sets it as dirty
   int setDirtyRes = StaticBuffer::setDirtyBit(this->blockNum);
   if(setDirtyRes != SUCCESS)
     return setDirtyRes;
@@ -103,7 +118,10 @@ int BlockBuffer::setBlockType(int blockType) {
   return SUCCESS;
 }
 
+// gets a free block and sets the header of the empty block
 int BlockBuffer::getFreeBlock(int blockType) {
+  
+  // iterate through bMAP
   int allocatedBlockNum = -1;
   for(int i=0; i<DISK_BLOCKS; i++) {
     if(StaticBuffer::blockAllocMap[i] == UNUSED_BLK) {
@@ -115,6 +133,7 @@ int BlockBuffer::getFreeBlock(int blockType) {
   if(allocatedBlockNum == -1)
     return E_DISKFULL;
 
+  // set the header 
   this->blockNum = allocatedBlockNum;
   int bufferIndex = StaticBuffer::getFreeBuffer(this->blockNum);
   struct HeadInfo head;
@@ -124,18 +143,22 @@ int BlockBuffer::getFreeBlock(int blockType) {
   head.numAttrs = 0;
   head.numEntries = 0;
   head.numSlots = 0;
-
   this->setHeader(&head);
+
+  // set the blocktype
   this->setBlockType(blockType);
 
   return allocatedBlockNum;
 } 
 
+// returns the blocknum of the buffer
 int BlockBuffer::getBlockNum() {
   return this->blockNum;
 }
 
 
+
+// gets the record of the block, and given slot
 int RecBuffer::getRecord(union Attribute *rec, int slotNum){
   struct HeadInfo head;
   this->getHeader(&head);
@@ -154,6 +177,7 @@ int RecBuffer::getRecord(union Attribute *rec, int slotNum){
   return SUCCESS;
 }
 
+// sets the record of a block, and given slot
 int RecBuffer::setRecord(union Attribute* rec, int slotNum) {
   unsigned char* bufferPtr;
   int loadResult = loadBlockAndGetBufferPtr(&bufferPtr);
@@ -171,10 +195,12 @@ int RecBuffer::setRecord(union Attribute* rec, int slotNum) {
   int offset = HEADER_SIZE + numSlots + (numAttrs * ATTR_SIZE * slotNum);
   memcpy(bufferPtr + offset, rec, ATTR_SIZE * numAttrs);
 
+  // updates dirty bit as buffer was modified
   StaticBuffer::setDirtyBit(this->blockNum);
   return SUCCESS;
 }
 
+// gets the slot map of the block
 int RecBuffer::getSlotMap(unsigned char* slotMap) {
   unsigned char* bufferPtr;
 
@@ -192,6 +218,7 @@ int RecBuffer::getSlotMap(unsigned char* slotMap) {
   return SUCCESS;
 }
 
+// sets the slot map of the block
 int RecBuffer::setSlotMap(unsigned char* slotMap) {
   unsigned char* bufferPtr;
   int loadRes = loadBlockAndGetBufferPtr(&bufferPtr);
@@ -201,8 +228,9 @@ int RecBuffer::setSlotMap(unsigned char* slotMap) {
   HeadInfo head;
   this->getHeader(&head);
   int numSlots = head.numSlots;
-
   memcpy(bufferPtr + HEADER_SIZE, slotMap, numSlots);
+
+  // dirty bit set as buffer modified
   int dirtyRes = StaticBuffer::setDirtyBit(this->blockNum);
 
   if(dirtyRes != SUCCESS)
@@ -210,6 +238,9 @@ int RecBuffer::setSlotMap(unsigned char* slotMap) {
   return SUCCESS;
 }
 
+
+
+// utility function to compare 2 attributes
 int compareAttrs(Attribute attr1, Attribute attr2, int attrType) {
   double diff;
   if(attrType == STRING)

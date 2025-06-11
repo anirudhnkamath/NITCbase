@@ -266,3 +266,130 @@ int BlockAccess::insert(int relId, Attribute *record) {
   
   return SUCCESS;
 }
+
+// search and find a record in a relation
+int BlockAccess::search(int relId, Attribute *record, char attrName[ATTR_SIZE], Attribute attrVal, int op) {
+  RecId recId = linearSearch(relId, attrName, attrVal, op);
+  if(recId.slot == -1 && recId.block == -1)
+    return E_NOTFOUND;
+
+  RecBuffer recBuffer(recId.block);
+  recBuffer.getRecord(record, recId.slot);
+
+  return SUCCESS;
+}
+
+// to delete a closed valid relation
+int BlockAccess::deleteRelation(char* relName) {
+  if(strcmp(relName, RELCAT_RELNAME) == 0 || strcmp(relName, ATTRCAT_RELNAME) == 0)
+    return E_NOTPERMITTED;
+
+  Attribute relNameAttr;
+  strcpy(relNameAttr.sVal, relName);
+
+  // searches in relation catalog for the corresponding record
+  RelCacheTable::resetSearchIndex(RELCAT_RELID);
+  RecId recIdInRelCat = BlockAccess::linearSearch(RELCAT_RELID, (char*)RELCAT_ATTR_RELNAME, relNameAttr, EQ);
+  if(recIdInRelCat.block == -1 && recIdInRelCat.slot == -1)
+    return E_RELNOTEXIST;
+
+  Attribute relCatRecord[RELCAT_NO_ATTRS];
+  RecBuffer relCatBuffer(RELCAT_BLOCK);
+  relCatBuffer.getRecord(relCatRecord, recIdInRelCat.slot);
+
+  int numAttrs = relCatRecord[RELCAT_NO_ATTRIBUTES_INDEX].nVal;
+  int numSlotsPerBlock = relCatRecord[RELCAT_NO_SLOTS_PER_BLOCK_INDEX].nVal;
+
+  // deletes all the record blocks belonging to the relation
+  int curBlock = relCatRecord[RELCAT_FIRST_BLOCK_INDEX].nVal;
+  while(curBlock != -1) {
+    RecBuffer delBlockBuffer(curBlock);
+    HeadInfo delBlockHead;
+    delBlockBuffer.getHeader(&delBlockHead);
+    int rBlock = delBlockHead.rblock;
+    delBlockBuffer.releaseBlock();
+    curBlock = rBlock;
+  }
+
+
+  int numOfAttrsDeleted = 0;
+  RelCacheTable::resetSearchIndex(ATTRCAT_RELID);
+
+  // iterate through attribute catalog and delete corresponding records
+  while(true) {
+    RecId recIdInAttrCat = BlockAccess::linearSearch(ATTRCAT_RELID, (char*)ATTRCAT_ATTR_RELNAME, relNameAttr, EQ);
+
+    if(recIdInAttrCat.block == -1 && recIdInAttrCat.slot == -1)
+      break;
+
+    numOfAttrsDeleted += 1;
+
+    HeadInfo curAttrCatHead;
+    RecBuffer curAttrCatBuffer(recIdInAttrCat.block);
+    curAttrCatBuffer.getHeader(&curAttrCatHead);
+
+    Attribute attrCatRecord[ATTRCAT_NO_ATTRS];
+    curAttrCatBuffer.getRecord(attrCatRecord, recIdInAttrCat.slot);
+
+    int rootBlock = attrCatRecord[ATTRCAT_ROOT_BLOCK_INDEX].nVal;
+    
+    // update slotmap of block of attribute catalog
+    unsigned char slotMap[numSlotsPerBlock];
+    curAttrCatBuffer.getSlotMap(slotMap);
+    slotMap[recIdInAttrCat.slot] = SLOT_UNOCCUPIED;
+    curAttrCatBuffer.setSlotMap(slotMap);
+    
+    // update header of block of attribute catalog
+    curAttrCatHead.numEntries -= 1;
+    curAttrCatBuffer.setHeader(&curAttrCatHead);
+
+    // maintain the linked list
+    if(curAttrCatHead.numEntries == 0) {
+      RecBuffer leftBlock(curAttrCatHead.lblock);
+      HeadInfo leftBlockHead;
+      leftBlock.getHeader(&leftBlockHead);
+      leftBlockHead.rblock = curAttrCatHead.rblock;
+      leftBlock.setHeader(&leftBlockHead);
+
+      if(curAttrCatHead.rblock != -1) {
+        RecBuffer rightBlock(curAttrCatHead.rblock);
+        HeadInfo rightBlockHead;
+        rightBlock.getHeader(&rightBlockHead);
+        rightBlockHead.lblock = curAttrCatHead.lblock;
+        rightBlock.setHeader(&rightBlockHead);
+      }
+      // if last block of attrcat is changed
+      else {
+        relCatRecord[RELCAT_LAST_BLOCK_INDEX].nVal = curAttrCatHead.lblock;
+      }
+
+      curAttrCatBuffer.releaseBlock();
+    }
+
+    if(rootBlock != -1) {}
+  }
+
+  // update header of relation catalog
+  HeadInfo relCatHead;
+  relCatBuffer.getHeader(&relCatHead);
+  relCatHead.numEntries -= 1;
+  relCatBuffer.setHeader(&relCatHead);
+
+  // update slotmap of relation catalog
+  unsigned char relCatSlotMap[SLOTMAP_SIZE_RELCAT_ATTRCAT];
+  relCatBuffer.getSlotMap(relCatSlotMap);
+  relCatSlotMap[recIdInRelCat.slot] = SLOT_UNOCCUPIED;
+  relCatBuffer.setSlotMap(relCatSlotMap);
+
+  // update cache entries corresponding to relcat and attrcat
+  RelCatEntry relCatEntry;
+  RelCacheTable::getRelCatEntry(RELCAT_RELID, &relCatEntry);
+  relCatEntry.numRecs -= 1;
+  RelCacheTable::setRelCatEntry(RELCAT_RELID, &relCatEntry);
+
+  RelCacheTable::getRelCatEntry(ATTRCAT_RELID, &relCatEntry);
+  relCatEntry.numRecs -= numOfAttrsDeleted;
+  RelCacheTable::setRelCatEntry(ATTRCAT_RELID, &relCatEntry);
+
+  return SUCCESS;
+}

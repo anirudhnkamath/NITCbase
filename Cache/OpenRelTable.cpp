@@ -231,15 +231,31 @@ int OpenRelTable::getFreeOpenRelTableEntry() {
   return E_CACHEFULL;
 }
 
-// closes all relations and frees slot=0 and 1
+// closes all relations and closes and frees slot=0 and 1 of relcache
 OpenRelTable::~OpenRelTable() {
   // closes all user relations
-  for (int i=2; i<MAX_OPEN; i++) {
-    if (!tableMetaInfo[i].free) {
+  for (int i=2; i<MAX_OPEN; i++)
+    if (!tableMetaInfo[i].free)
       OpenRelTable::closeRel(i);
-    }
-  }
   
+  // write back relcache entry of relation catalog
+  if(RelCacheTable::relCache[RELCAT_RELID]->dirty) {
+    Attribute relCatRecord[RELCAT_NO_ATTRS];
+    RelCacheEntry* relCacheEntry = RelCacheTable::relCache[RELCAT_RELID];
+    RelCacheTable::relCatEntryToRecord(&relCacheEntry->relCatEntry, relCatRecord);
+    RecBuffer recBuffer(relCacheEntry->recId.block);
+    recBuffer.setRecord(relCatRecord, relCacheEntry->recId.slot);
+  }
+
+  // write back relcache entry of attr cache
+  if(RelCacheTable::relCache[ATTRCAT_RELID]->dirty) {
+    Attribute relCatRecord[RELCAT_NO_ATTRS];
+    RelCacheEntry* relCacheEntry = RelCacheTable::relCache[ATTRCAT_RELID];
+    RelCacheTable::relCatEntryToRecord(&relCacheEntry->relCatEntry, relCatRecord);
+    RecBuffer recBuffer(relCacheEntry->recId.block);
+    recBuffer.setRecord(relCatRecord, relCacheEntry->recId.slot);
+  }
+
   // frees slot = 0 and slot = 1
   for(int i=0; i<=1; i++) {
     free(RelCacheTable::relCache[i]);

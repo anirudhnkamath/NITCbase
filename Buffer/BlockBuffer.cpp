@@ -156,6 +156,22 @@ int BlockBuffer::getBlockNum() {
   return this->blockNum;
 }
 
+// sets the block number in blockbuffer as INVALID BLOCK NUM
+void BlockBuffer::releaseBlock() {
+  if(this->blockNum == INVALID_BLOCKNUM)
+    return;
+
+  int bufferIndex = StaticBuffer::getBufferNum(this->blockNum);
+  
+  // if in buffer, frees it and sets free = true
+  if(bufferIndex != E_BLOCKNOTINBUFFER)
+    StaticBuffer::metainfo[bufferIndex].free = true;
+  
+  // updates block allocation map
+  StaticBuffer::blockAllocMap[this->blockNum] = UNUSED_BLK;
+  this->blockNum = INVALID_BLOCKNUM;
+}
+
 
 
 // gets the record of the block, and given slot

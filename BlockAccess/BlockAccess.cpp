@@ -393,3 +393,53 @@ int BlockAccess::deleteRelation(char* relName) {
 
   return SUCCESS;
 }
+
+// returns the next record of the relation based on searchIndex
+int BlockAccess::project(int relId, Attribute* record) {
+  RecId lastHitRecId;
+  RelCacheTable::getSearchIndex(relId, &lastHitRecId);
+
+  // set curblock and curslot based on search index
+  int curBlock, curSlot;
+  if(lastHitRecId.block == -1 && lastHitRecId.slot == -1) {
+    RelCatEntry relCatEntry;
+    RelCacheTable::getRelCatEntry(relId, &relCatEntry);
+    curBlock = relCatEntry.firstBlk;
+    curSlot = 0;
+  }
+  else {
+    curBlock = lastHitRecId.block;
+    curSlot = lastHitRecId.slot + 1;
+  }
+
+  // iterate through all blocks
+  while(curBlock != -1) {
+    RecBuffer curBlockBuffer(curBlock);
+    HeadInfo curBlockHead;
+    curBlockBuffer.getHeader(&curBlockHead);
+    unsigned char curBlockSlotMap[curBlockHead.numSlots];
+    curBlockBuffer.getSlotMap(curBlockSlotMap);
+    
+    if(curSlot >= curBlockHead.numSlots)
+      curBlock = curBlockHead.rblock, curSlot = 0;
+    // break if any record found
+    else if(curBlockSlotMap[curSlot] == SLOT_OCCUPIED)
+      break;
+    else if(curBlockSlotMap[curSlot] = SLOT_UNOCCUPIED)
+      curSlot += 1;
+
+  }
+
+  if(curBlock == -1)
+    return E_NOTFOUND;
+
+  RecId curHitRecId = {curBlock, curSlot};
+  RelCacheTable::setSearchIndex(relId, &curHitRecId);
+
+  // copy the record to the record buffer
+  RecBuffer foundBlockBuffer(curBlock);
+  foundBlockBuffer.getRecord(record, curSlot);
+  
+  return SUCCESS;
+}
+

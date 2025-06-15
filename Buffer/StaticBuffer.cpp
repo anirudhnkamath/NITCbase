@@ -93,6 +93,14 @@ int StaticBuffer::setDirtyBit(int blockNum) {
   return SUCCESS;
 }
 
+// returns the type of given block from BMAP
+int StaticBuffer::getStaticBlockType(int blockNum){
+  if(blockNum < 0 || blockNum >= DISK_BLOCKS)
+    return E_OUTOFBOUND;
+
+  return blockAllocMap[blockNum];
+}
+
 // writes back all the dirty buffers and BMAP
 StaticBuffer::~StaticBuffer(){
   // writes back the BMAP to disk

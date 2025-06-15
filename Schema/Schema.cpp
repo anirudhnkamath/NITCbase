@@ -74,7 +74,7 @@ int Schema::createRel(char relName[],int nAttrs, char attrs[][ATTR_SIZE], int at
   relCatRecord[RELCAT_LAST_BLOCK_INDEX].nVal = -1;
   relCatRecord[RELCAT_NO_RECORDS_INDEX].nVal = 0;
   relCatRecord[RELCAT_NO_ATTRIBUTES_INDEX].nVal = nAttrs;
-  relCatRecord[RELCAT_NO_SLOTS_PER_BLOCK_INDEX].nVal = floor(2016 / (16*nAttrs + 1));
+  relCatRecord[RELCAT_NO_SLOTS_PER_BLOCK_INDEX].nVal = floor((2016 / (16 * nAttrs + 1)));
 
   int relcatInsertRes = BlockAccess::insert(RELCAT_RELID, relCatRecord);
   if(relcatInsertRes != SUCCESS)

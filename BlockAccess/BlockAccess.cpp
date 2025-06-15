@@ -4,8 +4,10 @@
 
 // searches a (onty 1) record in a relation based on an operator and updates rec-id of the relation
 RecId BlockAccess::linearSearch(int relId, char *attrName, Attribute attrVal, int op) {
-  RecId prevRecId;
-  RelCacheTable::getSearchIndex(relId, &prevRecId);
+  RecId prevRecId = {-1, -1};
+  int getSearchIndexRet = RelCacheTable::getSearchIndex(relId, &prevRecId);
+  if(getSearchIndexRet != SUCCESS)
+    return prevRecId;
   
   int curBlock, curSlot;
 
@@ -182,20 +184,17 @@ int BlockAccess::insert(int relId, Attribute *record) {
     unsigned char curSlotMap[numOfSlots];
     curRecBuffer.getSlotMap(curSlotMap);
 
-
-    int freeSlot = -1;
     for(int i=0; i<numOfSlots; i++) {
       if(curSlotMap[i] == SLOT_UNOCCUPIED) {
-        freeSlot = i;
+        rec_id.block = curBlockNum;
+        rec_id.slot = i;
         break;
       }
     }
 
     // updates rec_id if free slot is found
-    if(freeSlot != -1) {
-      rec_id = {curBlockNum, freeSlot};
+    if(rec_id.slot != -1 && rec_id.slot != -1)
       break;
-    }
 
     // constantly keeps track of previously searched block
     prevBlockNum = curBlockNum;
@@ -217,8 +216,10 @@ int BlockAccess::insert(int relId, Attribute *record) {
 
     // set the header
     HeadInfo newHeader;
-    newHeader.blockType = REC, newHeader.pblock = -1, newHeader.rblock = -1, newHeader.numSlots = numOfSlots;
-    newHeader.numAttrs = numOfAttrs, newHeader.numEntries = 1, newHeader.lblock = prevBlockNum;
+    newBlockBuffer.getHeader(&newHeader);
+    newHeader.lblock = prevBlockNum;
+    newHeader.numSlots = numOfSlots;
+    newHeader.numAttrs = numOfAttrs;
     newBlockBuffer.setHeader(&newHeader);
 
     // set empty slotmap
@@ -263,18 +264,34 @@ int BlockAccess::insert(int relId, Attribute *record) {
   // updates numrecords in relation cache entry
   relCatEntry.numRecs += 1;
   RelCacheTable::setRelCatEntry(relId, &relCatEntry);
-  
+    
   return SUCCESS;
 }
 
-// search and find a record in a relation
+// searches next matching record (either linear search or bplus search)
 int BlockAccess::search(int relId, Attribute *record, char attrName[ATTR_SIZE], Attribute attrVal, int op) {
-  RecId recId = linearSearch(relId, attrName, attrVal, op);
-  if(recId.slot == -1 && recId.block == -1)
+  RecId foundRecId;
+
+  // check if index exists
+  AttrCatEntry reqAttrCatEntry;
+  int attrCatEntryRes = AttrCacheTable::getAttrCatEntry(relId, attrName, &reqAttrCatEntry);
+  if(attrCatEntryRes != SUCCESS)
+    return attrCatEntryRes;
+
+  int rootBlock = reqAttrCatEntry.rootBlock;
+
+  // search
+  if(rootBlock == -1) 
+    foundRecId = BlockAccess::linearSearch(relId, attrName, attrVal, op);
+  else
+    foundRecId = BPlusTree::bPlusSearch(relId, attrName, attrVal, op);
+  
+  if(foundRecId.block == -1 && foundRecId.slot == -1)
     return E_NOTFOUND;
 
-  RecBuffer recBuffer(recId.block);
-  recBuffer.getRecord(record, recId.slot);
+  // copy the record if found
+  RecBuffer foundBlockBuffer(foundRecId.block);
+  foundBlockBuffer.getRecord(record, foundRecId.slot);
 
   return SUCCESS;
 }

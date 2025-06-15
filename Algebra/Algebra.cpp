@@ -68,7 +68,7 @@ int Algebra::select(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], char attr
   // iterate through srcrel and insert required records to targetrel
   Attribute curRecord[srcNumAttrs];
   RelCacheTable::resetSearchIndex(srcRelId);
-  /* add a line here for b+ tree search later on*/
+  AttrCacheTable::resetSearchIndex(srcRelId, attr);
   while(BlockAccess::search(srcRelId, curRecord, attr, attrVal, op) == SUCCESS) {
     int ret = BlockAccess::insert(targetRelId, curRecord);
 

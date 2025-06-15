@@ -125,6 +125,7 @@ int OpenRelTable::openRel(char relName[ATTR_SIZE]) {
   RelCacheTable::recordToRelCatEntry(record, &(relCacheEntry.relCatEntry));
   relCacheEntry.recId.block = relcatId.block;
   relCacheEntry.recId.slot = relcatId.slot;
+  relCacheEntry.dirty = false;
 
   RelCacheTable::relCache[relId] = (struct RelCacheEntry*)malloc(sizeof(struct RelCacheEntry));
   *RelCacheTable::relCache[relId] = relCacheEntry;
@@ -133,7 +134,7 @@ int OpenRelTable::openRel(char relName[ATTR_SIZE]) {
   AttrCacheEntry* listHead = nullptr;
   AttrCacheEntry* listPrev = nullptr;
   RelCacheTable::resetSearchIndex(ATTRCAT_RELID);
-
+  
   // linear search through attribute catalog and create attr cache linked list using the records
   while(true) {
     RecId searchRes = BlockAccess::linearSearch(ATTRCAT_RELID, (char*)ATTRCAT_ATTR_RELNAME, attrVal, EQ);
@@ -147,6 +148,7 @@ int OpenRelTable::openRel(char relName[ATTR_SIZE]) {
       AttrCacheTable::recordToAttrCatEntry(record, &(attrCacheEntry->attrCatEntry));
       attrCacheEntry->recId.block = searchRes.block;
       attrCacheEntry->recId.slot = searchRes.slot;
+      attrCacheEntry->dirty = false;
       attrCacheEntry->next = nullptr;
 
       if(listHead == nullptr)

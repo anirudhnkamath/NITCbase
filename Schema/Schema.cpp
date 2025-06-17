@@ -92,11 +92,18 @@ int Schema::createRel(char relName[],int nAttrs, char attrs[][ATTR_SIZE], int at
 
     // if insert fails, deletes the relation (also deletes the relation catalog entry)
     int attrcatInsertRes = BlockAccess::insert(ATTRCAT_RELID, attrCatRecord);
+    printf("craeated %s as %d\n", attrCatRecord[ATTRCAT_ATTR_NAME_INDEX].sVal, attrCatRecord[ATTRCAT_PRIMARY_FLAG_INDEX].nVal);
     if(attrcatInsertRes != SUCCESS) {
       deleteRel(relName);
       return E_DISKFULL;
     }
   }
+
+  
+  RecBuffer attrCatBuffer(ATTRCAT_BLOCK);
+  Attribute record[ATTRCAT_NO_ATTRS];
+  attrCatBuffer.getRecord(record, 12);
+  printf("created as %s %d\n",record[ATTRCAT_ATTR_NAME_INDEX].sVal , record[ATTRCAT_PRIMARY_FLAG_INDEX].nVal);
 
   return SUCCESS;
 }
@@ -112,4 +119,40 @@ int Schema::deleteRel(char *relName) {
 
   int retVal = BlockAccess::deleteRelation(relName);
   return retVal;
+}
+
+// checks if relation is open and is permitted, and then calls bplustreecreate
+int Schema::createIndex(char relName[ATTR_SIZE],char attrName[ATTR_SIZE]) {
+  if(strcmp(relName, (char*)RELCAT_RELNAME) == 0 || strcmp(relName, (char*)ATTRCAT_RELNAME) == 0)
+    return E_NOTPERMITTED;
+  
+  int relId = OpenRelTable::getRelId(relName);
+  if(relId < 0)
+    return E_RELNOTOPEN;
+
+  return BPlusTree::bPlusCreate(relId, attrName);
+}
+
+// checks whether atribute exists and is open, and then calls bplusdelete()
+int Schema::dropIndex(char *relName, char *attrName) {
+  if(strcmp(relName, (char*)RELCAT_RELNAME) == 0 || strcmp(relName, (char*)ATTRCAT_RELNAME) == 0)
+    return E_NOTPERMITTED;
+  
+  int relId = OpenRelTable::getRelId(relName);
+  if(relId < 0)
+    return E_RELNOTOPEN;
+
+  AttrCatEntry attrCatEntry;
+  AttrCacheTable::getAttrCatEntry(relId, attrName, &attrCatEntry);
+
+  int rootBlock = attrCatEntry.rootBlock;
+  if(rootBlock == -1)
+    return E_NOINDEX;
+
+  BPlusTree::bPlusDestroy(rootBlock);
+
+  attrCatEntry.rootBlock = -1;
+  AttrCacheTable::setAttrCatEntry(relId, attrName, &attrCatEntry);
+
+  return SUCCESS;
 }

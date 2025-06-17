@@ -151,6 +151,7 @@ int OpenRelTable::openRel(char relName[ATTR_SIZE]) {
       attrCacheEntry->dirty = false;
       attrCacheEntry->next = nullptr;
 
+
       if(listHead == nullptr)
         listHead = attrCacheEntry;
       if(listPrev != nullptr)
@@ -186,20 +187,27 @@ int OpenRelTable::closeRel(int relId) {
     union Attribute record[RELCAT_NO_ATTRS];
     RelCacheTable::relCatEntryToRecord(&(RelCacheTable::relCache[relId]->relCatEntry), record);
 
-    // linear search the record corresponding to relname in relation catalog
-    union Attribute attrVal;
-    strcpy(attrVal.sVal, record[RELCAT_REL_NAME_INDEX].sVal);
-    RelCacheTable::resetSearchIndex(RELCAT_RELID);
-    RecId recId = BlockAccess::linearSearch(RELCAT_RELID, (char*)RELCAT_ATTR_RELNAME, attrVal, EQ);
-
     // write back
-    RecBuffer relCatBlock(recId.block);
-    relCatBlock.setRecord(record, recId.slot);
+    RecBuffer relCatBlock(RelCacheTable::relCache[relId]->recId.block);
+    relCatBlock.setRecord(record, RelCacheTable::relCache[relId]->recId.slot);
   }
   
   // frees the relcache entry
   free(RelCacheTable::relCache[relId]);
   RelCacheTable::relCache[relId] = nullptr;
+  
+  // writes back attrcacheentry if its dirty
+  for(AttrCacheEntry* entry = AttrCacheTable::attrCache[relId]; entry != nullptr; entry = entry->next) {
+    if(entry->dirty) {
+      // convert to record
+      Attribute record[ATTRCAT_NO_ATTRS];
+      AttrCacheTable::attrCatEntryToRecord(&(entry->attrCatEntry), record);
+      
+      // write back
+      RecBuffer curBuffer(entry->recId.block);
+      curBuffer.setRecord(record, entry->recId.slot);
+    }
+  }
 
   // frees attrcache linked list
   AttrCacheEntry* curAttrCacheEntry = AttrCacheTable::attrCache[relId];

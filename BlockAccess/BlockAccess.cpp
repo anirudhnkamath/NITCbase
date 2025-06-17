@@ -264,8 +264,20 @@ int BlockAccess::insert(int relId, Attribute *record) {
   // updates numrecords in relation cache entry
   relCatEntry.numRecs += 1;
   RelCacheTable::setRelCatEntry(relId, &relCatEntry);
+  
+  int flag = SUCCESS;
+  for(int i=0; i<numOfAttrs; i++) {
+    AttrCatEntry curAttrCatEntry;
+    AttrCacheTable::getAttrCatEntry(relId, i, &curAttrCatEntry);
+
+    if(curAttrCatEntry.rootBlock != -1) {
+      int retVal = BPlusTree::bPlusInsert(relId, curAttrCatEntry.attrName, record[curAttrCatEntry.offset], rec_id);
+      if(retVal == E_DISKFULL)
+        flag = E_INDEX_BLOCKS_RELEASED;
+    }
+  }
     
-  return SUCCESS;
+  return flag;
 }
 
 // searches next matching record (either linear search or bplus search)
@@ -383,7 +395,9 @@ int BlockAccess::deleteRelation(char* relName) {
       curAttrCatBuffer.releaseBlock();
     }
 
-    if(rootBlock != -1) {}
+    if(rootBlock != -1) {
+      BPlusTree::bPlusDestroy(rootBlock);
+    }
   }
 
   // update header of relation catalog

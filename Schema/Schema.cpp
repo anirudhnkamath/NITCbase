@@ -92,7 +92,6 @@ int Schema::createRel(char relName[],int nAttrs, char attrs[][ATTR_SIZE], int at
 
     // if insert fails, deletes the relation (also deletes the relation catalog entry)
     int attrcatInsertRes = BlockAccess::insert(ATTRCAT_RELID, attrCatRecord);
-    printf("craeated %s as %d\n", attrCatRecord[ATTRCAT_ATTR_NAME_INDEX].sVal, attrCatRecord[ATTRCAT_PRIMARY_FLAG_INDEX].nVal);
     if(attrcatInsertRes != SUCCESS) {
       deleteRel(relName);
       return E_DISKFULL;
@@ -103,7 +102,6 @@ int Schema::createRel(char relName[],int nAttrs, char attrs[][ATTR_SIZE], int at
   RecBuffer attrCatBuffer(ATTRCAT_BLOCK);
   Attribute record[ATTRCAT_NO_ATTRS];
   attrCatBuffer.getRecord(record, 12);
-  printf("created as %s %d\n",record[ATTRCAT_ATTR_NAME_INDEX].sVal , record[ATTRCAT_PRIMARY_FLAG_INDEX].nVal);
 
   return SUCCESS;
 }

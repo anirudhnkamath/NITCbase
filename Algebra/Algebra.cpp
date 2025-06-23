@@ -234,3 +234,127 @@ int Algebra::project(char srcRel[ATTR_SIZE], char tarRel[ATTR_SIZE], int tarNumA
   Schema::closeRel(tarRel);
   return SUCCESS;
 }
+
+// equi-joins two relations with unique attributes names except the join attribute
+int Algebra::join(char srcRelation1[ATTR_SIZE], char srcRelation2[ATTR_SIZE], char targetRelation[ATTR_SIZE], char attribute1[ATTR_SIZE], char attribute2[ATTR_SIZE]) {
+  int srcRelId1 = OpenRelTable::getRelId(srcRelation1);
+  int srcRelId2 = OpenRelTable::getRelId(srcRelation2);
+
+  if(srcRelId1 == E_RELNOTOPEN || srcRelId2 == E_RELNOTOPEN)
+    return E_RELNOTOPEN;
+
+  AttrCatEntry attrCatEntry1, attrCatEntry2;
+  int attrRes1 = AttrCacheTable::getAttrCatEntry(srcRelId1, attribute1, &attrCatEntry1);
+  int attrRes2 = AttrCacheTable::getAttrCatEntry(srcRelId2, attribute2, &attrCatEntry2);
+
+  if(attrRes1 != SUCCESS || attrRes2 != SUCCESS)
+    return E_ATTRNOTEXIST;
+
+  if(attrCatEntry1.attrType != attrCatEntry2.attrType)
+    return E_ATTRTYPEMISMATCH;
+
+  RelCatEntry relCatEntry1, relCatEntry2;
+  RelCacheTable::getRelCatEntry(srcRelId1, &relCatEntry1);
+  RelCacheTable::getRelCatEntry(srcRelId2, &relCatEntry2);
+  int nAttrs1 = relCatEntry1.numAttrs, nAttrs2 = relCatEntry2.numAttrs;
+
+  // checks if duplicate attribute exists in relations other than the join attribute
+  // for each attribute in rel1, search its name in rel2, and return if exists
+  for(int i=0; i<relCatEntry1.numAttrs; i++) {
+    if(i == attrCatEntry1.offset)
+      continue;
+    
+    AttrCatEntry temp1, temp2;
+    AttrCacheTable::getAttrCatEntry(srcRelId1, i, &temp1);
+    int dupFoundRes = AttrCacheTable::getAttrCatEntry(srcRelId2, temp1.attrName, &temp2);
+
+    if(dupFoundRes == SUCCESS)
+      return E_DUPLICATEATTR;
+  }
+
+  // create index for join attribute in relation 2
+  int indexRes = BPlusTree::bPlusCreate(srcRelId2, attribute2);
+  if(indexRes != SUCCESS)
+    return indexRes;
+
+  // prepare the entries needed to create new table
+  int nAttrsTarget = nAttrs1 + nAttrs2 - 1;
+  char targetRelAttrNames[nAttrsTarget][ATTR_SIZE];
+  int targetRelAttrTypes[nAttrsTarget];
+
+  int fillIndex = -1;
+  // copy table 1 entries to new table entries
+  for(int i=0; i<nAttrs1; i++) {
+    AttrCatEntry temp;
+    AttrCacheTable::getAttrCatEntry(srcRelId1, i, &temp);
+
+    fillIndex += 1;
+    strcpy(targetRelAttrNames[fillIndex], temp.attrName);
+    targetRelAttrTypes[fillIndex] = temp.attrType;
+  }
+  // copy table 2 entries to new table entries
+  for(int i=0; i<nAttrs2; i++) {
+    // skip the join attribute in the second table
+    if(i == attrCatEntry1.offset)
+      continue;
+
+    AttrCatEntry temp;
+    AttrCacheTable::getAttrCatEntry(srcRelId2, i, &temp);
+
+    fillIndex += 1;
+    strcpy(targetRelAttrNames[fillIndex], temp.attrName);
+    targetRelAttrTypes[fillIndex] = temp.attrType;
+  }
+
+  // creates target relation to insert
+  int createRes = Schema::createRel(targetRelation, nAttrsTarget, targetRelAttrNames, targetRelAttrTypes);
+  if(createRes != SUCCESS)
+    return createRes;
+
+  int targetRelId = OpenRelTable::openRel(targetRelation);
+  if(targetRelId < 0) {
+    Schema::deleteRel(targetRelation);
+    return targetRelId;
+  }
+  
+  Attribute record1[nAttrs1];
+  Attribute record2[nAttrs2];
+  Attribute targetRecord[nAttrsTarget];
+
+  // iterate through all records of rel1 to find matching records in rel2
+  RelCacheTable::resetSearchIndex(srcRelId1);
+  while(BlockAccess::project(srcRelId1, record1) == SUCCESS) {
+
+    RelCacheTable::resetSearchIndex(srcRelId2);
+    AttrCacheTable::resetSearchIndex(srcRelId2, attribute2);
+
+    // iterate through all matching records in rel2
+    while(BlockAccess::search(srcRelId2, record2, attribute2, record1[attrCatEntry1.offset], EQ) == SUCCESS) {
+
+      // create the record to insert
+      int recordFillIndex = -1;
+      for(int i=0; i<nAttrs1; i++) {
+        recordFillIndex += 1;
+        targetRecord[recordFillIndex] = record1[i];
+      }
+      for(int i=0; i<nAttrs2; i++) {
+        if(i == attrCatEntry2.offset)
+          continue;
+        else {
+          recordFillIndex += 1;
+          targetRecord[recordFillIndex] = record2[i];
+        }
+      }
+
+      // insert
+      int insertRes = BlockAccess::insert(targetRelId, targetRecord);
+      if(insertRes != SUCCESS) {
+        OpenRelTable::closeRel(targetRelId);
+        Schema::deleteRel(targetRelation);
+      }
+    }
+  }
+
+  OpenRelTable::closeRel(targetRelId);
+  return SUCCESS;
+}

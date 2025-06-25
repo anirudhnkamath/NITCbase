@@ -1,2 +1,0 @@
-open table Numbers;
-drop index on Numbers.key

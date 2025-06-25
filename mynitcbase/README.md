@@ -1,3 +1,3 @@
-# nitcbase
+# NITCBase
 
-The students will be implementing their code within this repository.
+Code will be implemented in this directory

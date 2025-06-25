@@ -1,0 +1,4 @@
+create table hi(key num);
+open table hi;
+insert into hi values (1);
+create index on hi.key;

@@ -1,0 +1,4 @@
+fdisk
+CREATE TABLE Numbers(key NUM);
+OPEN TABLE Numbers;
+INSERT INTO Numbers VALUES FROM NumbersVerySmall.csv;

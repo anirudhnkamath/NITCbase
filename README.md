@@ -26,3 +26,8 @@ Make sure you have a C/C++ compiler (gcc/g++) to execute the code
    ```bash
    make
    ```
+### Warning
+Commit 273bd28 makes a major change to the directory by moving the tracked directory **one level up**. All commits before commit 273bd28
+are under /mynitcbase directory, and all commits after commit 273bd28 are one level above. Please work accordingly.
+
+ 
